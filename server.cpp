@@ -20,7 +20,8 @@ main(int argc, char *argv[])
   }
   unsigned int port;
   string dir = argv[2];
-  if(!sscanf(argv[1],"%io", &port)){
+
+  if(!sscanf(argv[1],"%i", &port)){
     cerr << "Error: port input must be a number" << endl;
     exit(1);
   }
@@ -28,8 +29,8 @@ main(int argc, char *argv[])
   if(port < 1024 || port > 65535){
     cerr << "Error: port value must be between 1024 and 65535" << endl;
     exit(1);
-  }  
-  cout << port << endl;
+  }
+  
   // create a socket using TCP IP
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 

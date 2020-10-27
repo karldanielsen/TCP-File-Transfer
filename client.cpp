@@ -9,15 +9,19 @@
 #include <errno.h>
 #include <unistd.h>
 
+#include <csignal>
+#include <fstream>
 #include <iostream>
 #include <sstream>
 using namespace std;
 
-int
-main(int argc, char *argv[])
+void signalHandler(int signum);
+
+int main(int argc, char *argv[])
 {
   //First process the inputs
-  if(argc != 4){                                                                                                           cerr << "Error: Incorrect number of arguments" << endl;
+  if(argc != 4){
+    cerr << "Error: Incorrect number of arguments" << endl;
     exit(1);
   }
   string hostname = argv[1];
@@ -71,18 +75,28 @@ main(int argc, char *argv[])
   std::cout << "Set up a connection from: " << ipstr << ":" <<
     ntohs(clientAddr.sin_port) << std::endl;
 
+  //Activate signal handlers
+  signal(SIGTERM, signalHandler);
+  signal(SIGQUIT, signalHandler);
 
   // send/receive data to/from connection
   bool isEnd = false;
-  std::string input;
-  char buf[1024] = {0};
+  string input;
+  char buf[1024];
   std::stringstream ss;
-
+  ifstream f(filename,ios::in | ios::binary); 
+  
   while (!isEnd) {
     memset(buf, '\0', sizeof(buf));
 
-    std::cout << "send: ";
-    std::cin >> input;
+    f.read(buf,1024);
+    if(!f){
+      cout << "Bytes read: " <<f.gcount() << endl;
+      cerr << "Error: Failed to place section of input file into buffer." << endl;
+      exit(1);
+    }
+    ss << buf << endl;
+    input = ss.str();
     if (send(sockfd, input.c_str(), input.size(), 0) == -1) {
       perror("send");
       return 4;
@@ -93,7 +107,6 @@ main(int argc, char *argv[])
       perror("recv");
       return 5;
     }
-    ss << buf << std::endl;
     std::cout << "echo: ";
     std::cout << buf << std::endl;
 
@@ -106,4 +119,9 @@ main(int argc, char *argv[])
   close(sockfd);
 
   return 0;
+}
+
+void signalHandler(int signum){
+  cout << "Process exiting with SIGQUIT/SIGTERM signal, signum = " << signum <<"..." << endl;
+  exit(1);
 }
