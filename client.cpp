@@ -1,3 +1,5 @@
+/* TODO: Remove cin-based file transfer and replace it with a file that transfers in 1024 byte sections.*/
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -9,10 +11,29 @@
 
 #include <iostream>
 #include <sstream>
+using namespace std;
 
 int
-main()
+main(int argc, char *argv[])
 {
+  //First process the inputs
+  if(argc != 4){                                                                                                           cerr << "Error: Incorrect number of arguments" << endl;
+    exit(1);
+  }
+  string hostname = argv[1];
+  unsigned int port;
+  string filename = argv[3];
+  
+  if(!sscanf(argv[2],"%i", &port)){
+    cerr << "Error: port input must be a number" << endl;
+    exit(1);
+  }
+
+  if(port < 1024 || port > 65535){
+    cerr << "Error: port value must be between 1024 and 65535" << endl;
+    exit(1);
+  }
+  
   // create a socket using TCP IP
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -28,7 +49,7 @@ main()
 
   struct sockaddr_in serverAddr;
   serverAddr.sin_family = AF_INET;
-  serverAddr.sin_port = htons(50000);     // short, network byte order
+  serverAddr.sin_port = htons(port);     // short, network byte order
   serverAddr.sin_addr.s_addr = inet_addr("127.0.0.1");
   memset(serverAddr.sin_zero, '\0', sizeof(serverAddr.sin_zero));
 
@@ -54,7 +75,7 @@ main()
   // send/receive data to/from connection
   bool isEnd = false;
   std::string input;
-  char buf[20] = {0};
+  char buf[1024] = {0};
   std::stringstream ss;
 
   while (!isEnd) {
