@@ -1,6 +1,5 @@
 /* TODO:                                               */
 /* Re-implement multithreading                         */
-/* Use POLL to detect ten-second timeouts from clients */
 /* CRC Implementation                                  */
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -90,26 +89,50 @@ int main(int argc, char *argv[])
   }
 
   int numClients = 0;
+
   struct pollfd pfd;
-  pfd.events = POLLIN;
+  pfd.fd = sockfd;
+  pfd.events = POLLOUT | POLLPRI | POLLIN;
+  pfd.revents = POLLRDHUP | POLLERR;
   
   // accept a new connection
   while(true){
+    if(poll(&pfd,1,10000)){
+      pthread_t thread;
+      int rc;
+      numClients++;
+      rc = pthread_create(&thread, NULL, &handleClient, (void *)(intptr_t)numClients);
+      if(rc){
+	cout << "Error: No thread created, code: " << rc << endl;
+	exit(7);
+      }
+    }
+    else
+      continue; //Poll timeout
+    continue;
+  }
+  pthread_exit(NULL);
+  return 0;
+}
+
+void *handleClient(void *threadid){
+  long tid;
+  tid = (long)threadid;
+
+  struct pollfd pfd;
+    pfd.events = POLLIN;
+    
     struct sockaddr_in clientAddr;
     socklen_t clientAddrSize = sizeof(clientAddr);
-    //the timeout also times out accepts, so i have to put a loop around it
     int clientSockfd = 0;
-    while(clientSockfd == 0){
-      clientSockfd = accept(sockfd, (struct sockaddr*)&clientAddr, &clientAddrSize);
-    }
+    clientSockfd = accept(sockfd, (struct sockaddr*)&clientAddr, &clientAddrSize);
     if (clientSockfd == -1) {
       perror("accept");
       cerr << 4 << endl;
       exit(4);
     }
     pfd.fd = clientSockfd;
-    numClients++;
-
+    
     char ipstr[INET_ADDRSTRLEN] = {'\0'};
     inet_ntop(clientAddr.sin_family, &clientAddr.sin_addr, ipstr, sizeof(ipstr));
     std::cout << "Accept a connection from: " << ipstr << ":" <<
@@ -118,14 +141,14 @@ int main(int argc, char *argv[])
     //read/write data from/into the connection
     char buf[1025];
     int messageLen = 1024;
-    ofstream output(dir + "/" + to_string(numClients) + ".file");
+    ofstream output(dir + "/" + to_string(tid) + ".file");
 
     //Contine accepting data until the file is exhausted.
     while(messageLen == 1024){
       memset(buf, '\0', 1025);
       int clientState = poll(&pfd, 1, 10000);
       if(clientState == 0){
-	ofstream noutput(dir + "/" + to_string(numClients) + ".file");
+	ofstream noutput(dir + "/" + to_string(tid) + ".file");
 	noutput << "Error: Client connection timeout.";
       	noutput.close();
       	break;
@@ -146,56 +169,7 @@ int main(int argc, char *argv[])
     }
     output.close();
     close(clientSockfd);
-  }
-  return 0;
-}
 
-void *handleClient(void *threadid){
-  long tid;
-  tid = (long)threadid;
-  cout << tid << endl;
-  struct sockaddr_in clientAddr;
-  socklen_t clientAddrSize = sizeof(clientAddr);
-  int clientSockfd = accept(sockfd, (struct sockaddr*)&clientAddr, &clientAddrSize);
-  if (clientSockfd == -1) {
-    perror("accept");
-    exit(4);
-  }
-
-  char ipstr[INET_ADDRSTRLEN] = {'\0'};
-  inet_ntop(clientAddr.sin_family, &clientAddr.sin_addr, ipstr, sizeof(ipstr));
-  std::cout << "Accept a connection from: " << ipstr << ":" <<
-    ntohs(clientAddr.sin_port) << std::endl;
-
-  // read/write data from/into the connection
-  bool isEnd = false;
-  char buf[1024] = {0};
-  std::stringstream ss;
-  ofstream output(to_string(tid) + ".file");
-
-  while (!isEnd) {
-    memset(buf, '\0', sizeof(buf));
-    if (recv(clientSockfd, buf, 1024, 0) == -1) {
-      perror("recv");
-      exit(5);
-    }
-
-    ss << buf << std::endl;
-    output << buf;
-
-    if (send(clientSockfd, buf, 1024, 0) == -1) {
-      perror("send");
-      exit(6);
-    }
-
-    if (ss.str() == "close\n")
-      break;
-
-    ss.str("");
-  }
-  
-  output.close();
-  close(clientSockfd);
   pthread_exit(NULL);
 }
 
