@@ -1,5 +1,4 @@
 /* TODO:                                               */
-/* Re-implement multithreading                         */
 /* CRC Implementation                                  */
 #include <sys/types.h>
 #include <sys/socket.h>
