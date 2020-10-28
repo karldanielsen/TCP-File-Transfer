@@ -1,3 +1,7 @@
+/* TODO:                                               */
+/* Re-implement multithreading                         */
+/* Use POLL to detect ten-second timeouts from clients */
+/* CRC Implementation                                  */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -31,7 +35,7 @@ int main(int argc, char *argv[])
     exit(1);
   }
   unsigned int port;
-  string dir = argv[2];
+  dir = argv[2];
 
   if(!sscanf(argv[1],"%i", &port)){
     cerr << "Error: port input must be a number" << endl;
@@ -64,6 +68,16 @@ int main(int argc, char *argv[])
   addr.sin_addr.s_addr = inet_addr("127.0.0.1");
   memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
 
+
+  //For some god-forsaken reason this also times out accept???
+  // struct timeval tv;
+  // tv.tv_sec = 10;
+  // tv.tv_usec = 0;
+  // if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, (const char*)&tv, sizeof tv)) {
+  //   perror("timeout may fail to set on windows.");
+  //   return 8;
+  // }
+  
   if (bind(sockfd, (struct sockaddr*)&addr, sizeof(addr)) == -1) {
     perror("bind");
     return 2;
@@ -76,23 +90,26 @@ int main(int argc, char *argv[])
   }
 
   int numClients = 0;
-  // struct pollfd pfd;
-  // pfd.fd = sockfd;
-  // pfd.events = POLLRDHUP;
-  // pfd.revents = 0;
-
+  struct pollfd pfd;
+  pfd.events = POLLIN;
+  
   // accept a new connection
   while(true){
     struct sockaddr_in clientAddr;
     socklen_t clientAddrSize = sizeof(clientAddr);
-    int clientSockfd = accept(sockfd, (struct sockaddr*)&clientAddr, &clientAddrSize);
+    //the timeout also times out accepts, so i have to put a loop around it
+    int clientSockfd = 0;
+    while(clientSockfd == 0){
+      clientSockfd = accept(sockfd, (struct sockaddr*)&clientAddr, &clientAddrSize);
+    }
     if (clientSockfd == -1) {
       perror("accept");
       cerr << 4 << endl;
       exit(4);
     }
+    pfd.fd = clientSockfd;
     numClients++;
-    
+
     char ipstr[INET_ADDRSTRLEN] = {'\0'};
     inet_ntop(clientAddr.sin_family, &clientAddr.sin_addr, ipstr, sizeof(ipstr));
     std::cout << "Accept a connection from: " << ipstr << ":" <<
@@ -101,15 +118,26 @@ int main(int argc, char *argv[])
     //read/write data from/into the connection
     char buf[1025];
     int messageLen = 1024;
-    ofstream output(to_string(numClients) + ".file");
+    ofstream output(dir + "/" + to_string(numClients) + ".file");
 
+    //Contine accepting data until the file is exhausted.
     while(messageLen == 1024){
       memset(buf, '\0', 1025);
-      messageLen = recv(clientSockfd, buf, 1024, 0);
-      if (messageLen == -1) {
-	perror("recv");
-	exit(5);
+      int clientState = poll(&pfd, 1, 10000);
+      if(clientState == 0){
+	ofstream noutput(dir + "/" + to_string(numClients) + ".file");
+	noutput << "Error: Client connection timeout.";
+      	noutput.close();
+      	break;
       }
+      else{
+	messageLen = recv(clientSockfd, buf, 1024, 0);
+	if (messageLen == -1) {
+	  perror("recv");
+	  exit(5);
+	}
+      }
+
       output << buf;
       if (send(clientSockfd, buf, 1024, 0) == -1) {
       	perror("send");

@@ -6,4 +6,4 @@ server:
 client:
 	g++ -Wall -Wextra -Werror -c client.cpp
 clean:
-	rm -f server client
+	rm -f server client server.o client.o

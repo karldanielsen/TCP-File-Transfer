@@ -1,3 +1,8 @@
+/* TODO:                                               */
+/* Implement flawed hostname detection. idk what       */
+/* Implement timeouts for both connection and sending  */
+/* Add 8-byte CRC codes                                */
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -87,7 +92,7 @@ int main(int argc, char *argv[])
 
     //need to audit size when near max
     //TODO: TEST SENDING 1023, 1022 chars 
-    if(ss.str().size() > 1018)
+    if(ss.str().size() > 1024)
       input = ss.str().substr(0,1024);
     else
       input = ss.str();
