@@ -73,6 +73,7 @@ int main(int argc, char *argv[])
 
   // send/receive data to/from connection
   string input;
+  size_t bufLen = 1024;
   char buf[1024];
   std::stringstream ss;
   ifstream f(filename,ios::in | ios::binary); 
@@ -81,24 +82,32 @@ int main(int argc, char *argv[])
     memset(buf, '\0', sizeof(buf));
 
     f.read(buf,1024);
+    bufLen = f.gcount();
     ss << buf;
-    input = ss.str();
+
+    //need to audit size when near max
+    //TODO: TEST SENDING 1023, 1022 chars 
+    if(ss.str().size() > 1018)
+      input = ss.str().substr(0,1024);
+    else
+      input = ss.str();
+    
     if (send(sockfd, input.c_str(), input.size(), 0) == -1) {
       perror("send");
       return 4;
     }
 
-    if (recv(sockfd, buf, 1024, 0) == -1) {
+    if (recv(sockfd, buf, bufLen, 0) == -1) {
       perror("recv");
       return 5;
     }
-
+    //cout << buf;
     ss.str("");
     //catch when the file is empty
     if(!f)
       break;
   }
-  cout << "got to close!" << endl;
+  
   close(sockfd);
 
   return 0;

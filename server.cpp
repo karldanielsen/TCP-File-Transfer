@@ -46,7 +46,7 @@ int main(int argc, char *argv[])
   //Activate signal handlers
   signal(SIGTERM, signalHandler);
   signal(SIGQUIT, signalHandler);
-
+  
   // create a socket using TCP IP
   sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -76,10 +76,10 @@ int main(int argc, char *argv[])
   }
 
   int numClients = 0;
-  struct pollfd pfd;
-  pfd.fd = sockfd;
-  pfd.events = POLLRDHUP;
-  pfd.revents = 0;
+  // struct pollfd pfd;
+  // pfd.fd = sockfd;
+  // pfd.events = POLLRDHUP;
+  // pfd.revents = 0;
 
   // accept a new connection
   while(true){
@@ -99,30 +99,26 @@ int main(int argc, char *argv[])
       ntohs(clientAddr.sin_port) << std::endl;
 
     //read/write data from/into the connection
-    char buf[1024];
+    char buf[1025];
+    int messageLen = 1024;
     ofstream output(to_string(numClients) + ".file");
 
-    while(!poll(&pfd,1,1)){
-      memset(buf, '\0', sizeof(buf));
-      if (recv(clientSockfd, buf, 1024, 0) == -1) {
+    while(messageLen == 1024){
+      memset(buf, '\0', 1025);
+      messageLen = recv(clientSockfd, buf, 1024, 0);
+      if (messageLen == -1) {
 	perror("recv");
-	cerr << 5 << endl;
 	exit(5);
       }
-
       output << buf;
-
-      // if (send(clientSockfd, buf, 1024, 0) == -1) {
-      // 	perror("send");
-      // 	cerr << 6 << endl;
-      // 	exit(6);
-      // }
+      if (send(clientSockfd, buf, 1024, 0) == -1) {
+      	perror("send");
+      	exit(6);
+      }
     }
-    cout << "while end reached" << endl;
     output.close();
     close(clientSockfd);
   }
-  cout << "reached end" << endl;
   return 0;
 }
 
@@ -151,7 +147,7 @@ void *handleClient(void *threadid){
 
   while (!isEnd) {
     memset(buf, '\0', sizeof(buf));
-    if (recv(clientSockfd, buf, 20, 0) == -1) {
+    if (recv(clientSockfd, buf, 1024, 0) == -1) {
       perror("recv");
       exit(5);
     }
@@ -159,7 +155,7 @@ void *handleClient(void *threadid){
     ss << buf << std::endl;
     output << buf;
 
-    if (send(clientSockfd, buf, 20, 0) == -1) {
+    if (send(clientSockfd, buf, 1024, 0) == -1) {
       perror("send");
       exit(6);
     }
@@ -169,6 +165,7 @@ void *handleClient(void *threadid){
 
     ss.str("");
   }
+  
   output.close();
   close(clientSockfd);
   pthread_exit(NULL);
