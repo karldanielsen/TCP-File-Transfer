@@ -72,57 +72,35 @@ int main(int argc, char *argv[])
   // set socket to listen status
   if (listen(sockfd, 1) == -1) {
     perror("listen");
-    exit(3);
+    return 3;
   }
 
-  int numClients = 0;
+
+  //TODO: this is probably where the multithreading should start.
+  // accept a new connection
+
   struct pollfd pfd;
   pfd.fd = sockfd;
-  pfd.events = POLLRDHUP;
-  pfd.revents = 0;
-
-  // accept a new connection
+  pfd.events = POLLOUT | POLLPRI | POLLIN;
+  pfd.revents = POLLRDHUP | POLLERR;
+  int i = 0;
+  
+  //poll returns 1 if a client connects, 0 otherwise.
   while(true){
-    struct sockaddr_in clientAddr;
-    socklen_t clientAddrSize = sizeof(clientAddr);
-    int clientSockfd = accept(sockfd, (struct sockaddr*)&clientAddr, &clientAddrSize);
-    if (clientSockfd == -1) {
-      perror("accept");
-      cerr << 4 << endl;
-      exit(4);
-    }
-    numClients++;
-    
-    char ipstr[INET_ADDRSTRLEN] = {'\0'};
-    inet_ntop(clientAddr.sin_family, &clientAddr.sin_addr, ipstr, sizeof(ipstr));
-    std::cout << "Accept a connection from: " << ipstr << ":" <<
-      ntohs(clientAddr.sin_port) << std::endl;
-
-    //read/write data from/into the connection
-    char buf[1024];
-    ofstream output(to_string(numClients) + ".file");
-
-    while(!poll(&pfd,1,1)){
-      memset(buf, '\0', sizeof(buf));
-      if (recv(clientSockfd, buf, 1024, 0) == -1) {
-	perror("recv");
-	cerr << 5 << endl;
-	exit(5);
+    if(poll(&pfd,1,10000)){
+      pthread_t thread;
+      int rc;
+      i++;
+      rc = pthread_create(&thread, NULL, &handleClient, (void *)(intptr_t)i);
+      if(rc){
+	cout << "Error: No thread created, code: " << rc << endl;
+	exit(7);
       }
-
-      output << buf;
-
-      // if (send(clientSockfd, buf, 1024, 0) == -1) {
-      // 	perror("send");
-      // 	cerr << 6 << endl;
-      // 	exit(6);
-      // }
     }
-    cout << "while end reached" << endl;
-    output.close();
-    close(clientSockfd);
+    else
+      cout << "Poll Timeout, resuming..." << endl;
+    pthread_exit(NULL);
   }
-  cout << "reached end" << endl;
   return 0;
 }
 

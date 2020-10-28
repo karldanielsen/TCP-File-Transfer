@@ -1,5 +1,3 @@
-/* TODO: Remove cin-based file transfer and replace it with a file that transfers in 1024 byte sections.*/
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -14,8 +12,6 @@
 #include <iostream>
 #include <sstream>
 using namespace std;
-
-void signalHandler(int signum);
 
 int main(int argc, char *argv[])
 {
@@ -75,53 +71,35 @@ int main(int argc, char *argv[])
   std::cout << "Set up a connection from: " << ipstr << ":" <<
     ntohs(clientAddr.sin_port) << std::endl;
 
-  //Activate signal handlers
-  signal(SIGTERM, signalHandler);
-  signal(SIGQUIT, signalHandler);
-
   // send/receive data to/from connection
-  bool isEnd = false;
   string input;
   char buf[1024];
   std::stringstream ss;
   ifstream f(filename,ios::in | ios::binary); 
   
-  while (!isEnd) {
+  while (true) {
     memset(buf, '\0', sizeof(buf));
 
     f.read(buf,1024);
-    if(!f){
-      cout << "Bytes read: " <<f.gcount() << endl;
-      cerr << "Error: Failed to place section of input file into buffer." << endl;
-      exit(1);
-    }
-    ss << buf << endl;
+    ss << buf;
     input = ss.str();
     if (send(sockfd, input.c_str(), input.size(), 0) == -1) {
       perror("send");
       return 4;
     }
 
-
-    if (recv(sockfd, buf, 20, 0) == -1) {
+    if (recv(sockfd, buf, 1024, 0) == -1) {
       perror("recv");
       return 5;
     }
-    std::cout << "echo: ";
-    std::cout << buf << std::endl;
-
-    if (ss.str() == "close\n")
-      break;
 
     ss.str("");
+    //catch when the file is empty
+    if(!f)
+      break;
   }
-
+  cout << "got to close!" << endl;
   close(sockfd);
 
   return 0;
-}
-
-void signalHandler(int signum){
-  cout << "Process exiting with SIGQUIT/SIGTERM signal, signum = " << signum <<"..." << endl;
-  exit(1);
 }
