@@ -1,5 +1,5 @@
 /* TODO:                                               */
-/* CRC Implementation                                  */
+/* Don't include CRC in output                         */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -21,27 +21,38 @@ using namespace std;
 int sockfd;
 string dir;
 
+const uint64_t m_poly = 0x42F0E1EBA9EA3693;
+
+uint64_t crcTable[256];
+
 void signalHandler(int signum);
 
 void *handleClient(void *threadid);
 
+void buildCRCTable();
+
+uint64_t calcCRC(uint8_t *message, int size);
+
 int main(int argc, char *argv[])
 {
+  //Populate the crctable
+  buildCRCTable();
+  
   //First process the inputs
   if(argc != 3){
-    cerr << "Error: Incorrect number of arguments" << endl;
+    cerr << "ERROR: Incorrect number of arguments" << endl;
     exit(1);
   }
   unsigned int port;
   dir = argv[2];
 
   if(!sscanf(argv[1],"%i", &port)){
-    cerr << "Error: port input must be a number" << endl;
+    cerr << "ERROR: port input must be a number" << endl;
     exit(1);
   }
 
   if(port < 1024 || port > 65535){
-    cerr << "Error: port value must be between 1024 and 65535" << endl;
+    cerr << "ERROR: port value must be between 1024 and 65535" << endl;
     exit(1);
   }
   
@@ -92,7 +103,6 @@ int main(int argc, char *argv[])
   struct pollfd pfd;
   pfd.fd = sockfd;
   pfd.events = POLLOUT | POLLPRI | POLLIN;
-  pfd.revents = POLLRDHUP | POLLERR;
   
   // accept a new connection
   while(true){
@@ -102,7 +112,7 @@ int main(int argc, char *argv[])
       numClients++;
       rc = pthread_create(&thread, NULL, &handleClient, (void *)(intptr_t)numClients);
       if(rc){
-	cout << "Error: No thread created, code: " << rc << endl;
+	cout << "ERROR: No thread created, code: " << rc << endl;
 	exit(7);
       }
     }
@@ -127,8 +137,7 @@ void *handleClient(void *threadid){
     clientSockfd = accept(sockfd, (struct sockaddr*)&clientAddr, &clientAddrSize);
     if (clientSockfd == -1) {
       perror("accept");
-      cerr << 4 << endl;
-      exit(4);
+      pthread_exit(NULL);
     }
     pfd.fd = clientSockfd;
     
@@ -148,7 +157,7 @@ void *handleClient(void *threadid){
       int clientState = poll(&pfd, 1, 10000);
       if(clientState == 0){
 	ofstream noutput(dir + "/" + to_string(tid) + ".file");
-	noutput << "Error: Client connection timeout.";
+	noutput << "ERROR: Client connection timeout.";
       	noutput.close();
       	break;
       }
@@ -156,20 +165,58 @@ void *handleClient(void *threadid){
 	messageLen = recv(clientSockfd, buf, 1024, 0);
 	if (messageLen == -1) {
 	  perror("recv");
-	  exit(5);
+	  pthread_exit(NULL);
 	}
       }
 
+      //Use crc to verify message is uncorrupted
+      uint64_t foundCrc = htobe64(calcCRC((uint8_t*)buf, messageLen-8)); //Check this-- \0 might ruin it.
+      //Since the crc is only 8 bytes, a for comparator is faster than string parsing.
+      for(int i = 7; i > -1; i--){
+	if((char)foundCrc != buf[messageLen-i-1]){
+	  ofstream noutput(dir + "/" + to_string(tid) + ".file");
+	  noutput << "ERROR: Crc mismatch. TCP error detected. Connection terminated.";
+	  noutput.close();
+	  break;
+	}
+	foundCrc = foundCrc >> 8;
+      }
+
+      //TODO: broke
       output << buf;
       if (send(clientSockfd, buf, 1024, 0) == -1) {
       	perror("send");
-      	exit(6);
+      	pthread_exit(NULL);
       }
     }
     output.close();
     close(clientSockfd);
 
   pthread_exit(NULL);
+}
+
+void buildCRCTable(){
+  uint64_t crc = 0x8000000000000000;
+  int i = 1;
+  do{
+    if(crc & 0x8000000000000000){
+      crc = (crc << 1) ^ m_poly;
+    }
+    else{
+      crc = crc << 1;
+    }
+    for(int j = 0; j < i-1; j++){
+      crcTable[i+j] = crc ^ crcTable[j];
+    }
+    i = i << 1;
+  } while(i < 256);
+}
+
+uint64_t calcCRC(uint8_t *message, int size){
+  uint64_t rem = 0;
+  for(int i = 0; i < size; i++)
+    rem = (rem >> 8) ^ (crcTable[(uint8_t)(message[i] ^ rem)]);
+  return rem;
 }
 
 void signalHandler(int signum){
