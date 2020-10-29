@@ -1,5 +1,4 @@
 /* TODO:                                               */
-/* Don't include CRC in output                         */
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -183,7 +182,9 @@ void *handleClient(void *threadid){
       }
 
       //TODO: broke
-      output << buf;
+      for(int i = 0; i < messageLen-8; i++)
+	output << buf[i];
+
       if (send(clientSockfd, buf, 1024, 0) == -1) {
       	perror("send");
       	pthread_exit(NULL);
