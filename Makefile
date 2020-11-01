@@ -1,9 +1,20 @@
-main: server client
-	g++ -g -o server server.o -lpthread 
-	g++ -g -o client client.o
-server:
-	g++ -Wall -Wextra -Werror -ggdb -c server.cpp
-client:
-	g++ -Wall -Wextra -Werror -ggdb -c client.cpp
+CXX=g++
+CXXOPTIMIZE= -O2
+CXXFLAGS= -g -Wall -pthread -std=c++11 $(CXXOPTIMIZE)
+USERID=204983147
+CLASSES=
+
+all: server client
+
+server: $(CLASSES)
+	$(CXX) -o $@ $^ $(CXXFLAGS) $@.cpp CRC.cpp
+
+client: $(CLASSES)
+	$(CXX) -o $@ $^ $(CXXFLAGS) $@.cpp CRC.cpp
+
 clean:
-	rm -f server client server.o client.o
+	rm -rf *.o *~ *.gch *.swp *.dSYM server client *.tar.gz
+
+dist: tarball
+tarball: clean
+	tar -cvzf /tmp/$(USERID).tar.gz --exclude=./.vagrant . && mv /tmp/$(USERID).tar.gz .

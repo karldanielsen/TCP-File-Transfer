@@ -1,8 +1,9 @@
-/* TODO:                                               */
-/* Implement use of the hostname option                */
+//Karl Danielsen
+//204983147
 
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <netdb.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <string.h>
@@ -42,7 +43,7 @@ int main(int argc, char *argv[])
   string filename = argv[3];
   
   if(!sscanf(argv[2],"%i", &port)){
-    cerr << "ERROR: port input must be a number" << endl;
+    cerr << "ERROR: Port input must be a number" << endl;
     exit(1);
   }
 
@@ -54,35 +55,28 @@ int main(int argc, char *argv[])
   // create a socket using TCP IP
   int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 
+  //retrieve ip from hostname
+  hostent* record = gethostbyname(hostname);
+  if(record == NULL){
+    cerr << "ERROR: Invalid hostname." << endl;
+    exit(1);
+  }
+  in_addr *address = (in_addr*)(record->h_addr);
+  
   //make socket non-blocking
   fcntl(sockfd, F_SETFL, F_GETFL | O_NONBLOCK);
   
-  // struct sockaddr_in addr;
-  // addr.sin_family = AF_INET;
-  // addr.sin_port = htons(40001);     // short, network byte order
-  // addr.sin_addr.s_addr = inet_addr("127.0.0.1");
-  // memset(addr.sin_zero, '\0', sizeof(addr.sin_zero));
-  // if (bind(sockfd, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-  //   perror("bind");
-  //   return 1;
-  // }
-
   struct sockaddr_in serverAddr;
   serverAddr.sin_family = AF_INET;
   serverAddr.sin_port = htons(port);     // short, network byte order
-  serverAddr.sin_addr.s_addr = inet_addr(hostname);
+  serverAddr.sin_addr.s_addr = inet_addr(inet_ntoa(*address));
   memset(serverAddr.sin_zero, '\0', sizeof(serverAddr.sin_zero));
 
-  // connect to the server
-  
-  //Poll and select both just get trampled, so here I am, manually calc'ng time.
-  // auto begin = chrono::system_clock::now();
-  // auto now = begin;
-
+  // connect to the server asynchronously
   connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
 
   if(errno == EINVAL){
-    cerr << "ERROR: Invalid hostname." << endl;
+    cerr << "ERROR: Problem establishing connection." << endl;
     exit(1);
   }
   
@@ -94,11 +88,13 @@ int main(int argc, char *argv[])
   timeout.tv_sec = 10;
   timeout.tv_usec = 0;
 
+  //Status detects if a connection is established or not as connect runs async
   int status = select(sockfd+1,NULL,&fds,NULL,&timeout);
   if(status < 1){
     cerr << "ERROR: Timeout connecting to server" << endl;
     return 1;
   }
+  
   //check status to make sure a connection was made and sockfd isn't in write
   //because it's empty.
   int serr;
@@ -108,13 +104,6 @@ int main(int argc, char *argv[])
     perror("connect");
     return 2;
   }
-  
-  // while(connection < 1){
-  //   if(begin - now > 10.0){
-  //     cerr << "ERROR: Timeout connecting to server" << endl;
-  //   }
-  //   now = chrono::system_clock::now();
-  // }
   
   fcntl(sockfd, F_SETFL, 0);
   struct sockaddr_in clientAddr;

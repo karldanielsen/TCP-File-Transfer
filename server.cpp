@@ -1,4 +1,6 @@
-/* TODO:                                               */
+//Karl Danielsen
+//204983147
+
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -158,7 +160,7 @@ void *handleClient(void *threadid){
 	ofstream noutput(dir + "/" + to_string(tid) + ".file");
 	noutput << "ERROR: Client connection timeout.";
       	noutput.close();
-      	break;
+      	pthread_exit(NULL);
       }
       else{
 	messageLen = recv(clientSockfd, buf, 1024, 0);
@@ -176,12 +178,11 @@ void *handleClient(void *threadid){
 	  ofstream noutput(dir + "/" + to_string(tid) + ".file");
 	  noutput << "ERROR: Crc mismatch. TCP error detected. Connection terminated.";
 	  noutput.close();
-	  break;
+	  pthread_exit(NULL);
 	}
 	foundCrc = foundCrc >> 8;
       }
 
-      //TODO: broke
       for(int i = 0; i < messageLen-8; i++)
 	output << buf[i];
 
