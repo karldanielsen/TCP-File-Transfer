@@ -170,9 +170,6 @@ void *handleClient(void *threadid){
 	}
       }
 
-      cout << "Message Length: " << messageLen << endl;
-      cout << "Message: " << buf << endl;
-      
       //Use crc to verify message is uncorrupted
       uint64_t foundCrc = htobe64(calcCRC((uint8_t*)buf, messageLen-8)); //Check this-- \0 might ruin it.
       //Since the crc is only 8 bytes, a for comparator is faster than string parsing.

@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
   // connect to the server asynchronously
   connect(sockfd, (struct sockaddr *)&serverAddr, sizeof(serverAddr));
 
-  if(errno == EINVAL){
+  if(errno != EINPROGRESS){
     cerr << "ERROR: Problem establishing connection." << endl;
     exit(1);
   }
@@ -119,7 +119,6 @@ int main(int argc, char *argv[])
     ntohs(clientAddr.sin_port) << std::endl;
 
   // send/receive data to/from connection
-  string input;
   size_t bufLen = 1024;
   char buf[1024];
   std::stringstream ss;
@@ -134,19 +133,10 @@ int main(int argc, char *argv[])
 
     f.read(buf,1016);
     bufLen = f.gcount();
-    ss << buf;
-    //need to audit size when near max
-    if(ss.str().size() > 1016)
-      input = ss.str().substr(0,1016);
-    else
-      input = ss.str();
-    
-    cout << "Sent string: " << buf << endl;
-    cout << "Size: " << bufLen << endl;
     
     uint64_t crc = htobe64(calcCRC((uint8_t*)buf, bufLen));
-    for(int i = 7; i > -1; i--){
-      input += (char)crc;
+    for(int i = 0; i < 8; i++){
+      buf[bufLen+i] = (char)crc;
       crc = crc >> 8;
     }
     //This does not work if the pipe opens in the instant between poll() and send().
@@ -154,12 +144,12 @@ int main(int argc, char *argv[])
       cerr << "ERROR: Timeout waiting for send" << endl;
       exit(1);
     }
-    if (send(sockfd, input.c_str(), input.size(), 0) == -1) {
+    if (send(sockfd, buf, bufLen+8, 0) == -1) {
       perror("send");
       return 4;
     }
 
-    if (recv(sockfd, buf, bufLen, 0) == -1) {
+    if (recv(sockfd, buf, bufLen+8, 0) == -1) {
       perror("recv");
       return 5;
     }
