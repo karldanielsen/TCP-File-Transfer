@@ -140,13 +140,15 @@ int main(int argc, char *argv[])
       input = ss.str().substr(0,1016);
     else
       input = ss.str();
-
+    
+    cout << "Sent string: " << buf << endl;
+    cout << "Size: " << bufLen << endl;
+    
     uint64_t crc = htobe64(calcCRC((uint8_t*)buf, bufLen));
     for(int i = 7; i > -1; i--){
       input += (char)crc;
       crc = crc >> 8;
     }
-
     //This does not work if the pipe opens in the instant between poll() and send().
     if(poll(&pfd,1,10000) == 0){
       cerr << "ERROR: Timeout waiting for send" << endl;
