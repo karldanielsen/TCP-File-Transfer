@@ -1,14 +1,9 @@
-NAME: Karl Danielsen
-UID: 204983147
-
      OVERVIEW:
 
-My server and client built on the sample code in the submission link on ccle.
-This skeleton provided a framework of two servers that could communicate, and
-it became my job to add in file reading functionality and CRC functionality.
 On a high level, my server and client set up sockets, connect those sockets,
 and then alternatingly call recv() and send(), so that each message sent down
-the pipe must be acknowledged before another is sent.
+the pipe must be acknowledged before another is sent. This allows large files
+to transfer in sections safely.
 
     PROBLEMS ENCOUNTERED:
 
@@ -17,7 +12,7 @@ libraries online, and most my of time was spent reading man pages rather than
 stack overflow links (which are what helps with most projects). I encountered
 two major problems while implementing my server:
 
-1. c++'s read() function just returns raw data. There is no \0 or anything
+1. c++'s read() function just returns raw data. There is no '\0' or anything
 else to guide other parts of the program and help them understand what to do
 with this data. As a result I made heavy use of c++'s stringstream libraries.
 Sadly, trying to turn a binary file into an array of characters causes a
@@ -41,7 +36,7 @@ fcntl
 
 Other than some stray one-or-two-line stack overflow links I found with Google, the
 only resource I used intimately was an online CRC64 library, which provided
-clearer code for how to implement CRC64 than the pseudocode on the project
-spec did. Hopefully it works, it is viewable here:
+clearer code for how to implement CRC64 than other pseudocode online. Hopefully it
+works, it is viewable here:
 
 https://github.com/f4exb/sdrdaemon/blob/master/sdmnbase/CRC64.cpp
