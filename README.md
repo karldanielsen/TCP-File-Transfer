@@ -1,11 +1,11 @@
-     OVERVIEW:
+        OVERVIEW:
 
 On a high level, my server and client set up sockets, connect those sockets,
 and then alternatingly call recv() and send(), so that each message sent down
 the pipe must be acknowledged before another is sent. This allows large files
 to transfer in sections safely.
 
-    PROBLEMS ENCOUNTERED:
+   PROBLEMS ENCOUNTERED:
 
 There seemed to be a lack of common knowledge about a lot of the TCP socket
 libraries online, and most my of time was spent reading man pages rather than
@@ -24,7 +24,8 @@ server-side.
 by making the socket non-blocking and polling for a write pipe after connect
 fails and begins to run asynchronously.
 
-        LIBRARIES USED:
+
+      LIBRARIES USED:
 
 poll
 fstream
@@ -32,7 +33,7 @@ csignal
 netdb
 fcntl
 
-	ONLINE RESOURCES:
+        ONLINE RESOURCES:
 
 Other than some stray one-or-two-line stack overflow links I found with Google, the
 only resource I used intimately was an online CRC64 library, which provided
